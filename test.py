@@ -35,7 +35,10 @@ def save_user(username, password):
         "username": username,
         "password_hash": hash_password(password)
     }])
-    df = pd.concat([df, new_user], ignore_index=True)
+    if df.empty:
+        df = new_user
+    else:
+        df = pd.concat([df, new_user], ignore_index=True)
     df.to_csv(USER_FILE, index=False)
 
 def validate_login(username, password):
@@ -159,7 +162,10 @@ def add_order(username, ticker, order_type, price, quantity):
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "status": "pending"
     }])
-    df = pd.concat([df, new_order], ignore_index=True)
+    if df.empty:
+        df = new_order
+    else:
+        df = pd.concat([df, new_order], ignore_index=True)
     df.to_csv(ORDERS_FILE, index=False)
     return True
 
@@ -201,7 +207,10 @@ def check_orders():
                         "Einstiegspreis": current_price,
                         "Kaufdatum": datetime.now().strftime("%Y-%m-%d")
                     }])
-                    user_portfolio = pd.concat([user_portfolio, new_position], ignore_index=True)
+                    if user_portfolio.empty:
+                        user_portfolio = new_position
+                    else:
+                        user_portfolio = pd.concat([user_portfolio, new_position], ignore_index=True)
                     user_portfolio.to_csv(f"portfolio_{order['username']}.csv", index=False)
                 
                 # If this is a sell order, update portfolio
@@ -398,7 +407,10 @@ if page == "Portfolio verwalten":
                 "Einstiegspreis": preis,
                 "Kaufdatum": kaufdatum
             }])
-            df = pd.concat([df, new_row], ignore_index=True)
+            if df.empty:
+                df = new_row
+            else:
+                df = pd.concat([df, new_row], ignore_index=True)
             save_portfolio(df)
             st.success(f"{ticker} hinzugefügt!")
             st.rerun()
