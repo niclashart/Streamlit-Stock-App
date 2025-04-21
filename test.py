@@ -317,38 +317,52 @@ def get_stock_info(ticker):
     except Exception as e:
         return {"error": f"Failed to retrieve information for {ticker}: {str(e)}"}
 
-def generate_chatbot_response(client, query, ticker=None):
-    """Generate a response to the user's query using the LLM"""
+def generate_chatbot_response(query, ticker=None):
+    """Generate a response to the user's query using DeepSeek's API with conversation history"""
     try:
+        conversation_history = []
+        if "messages" in st.session_state:
+            # Get the last few messages (limit to prevent token overflow)
+            recent_messages = st.session_state["messages"][-10:]  # Last 10 messages
+            for msg in recent_messages:
+                conversation_history.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
         if ticker:
             # Get stock information
             stock_data = get_stock_info(ticker)
             context = f"Information about {ticker}:\n{json.dumps(stock_data, indent=2)}\n\n"
         else:
-            context = "The user is asking a general stock market question.\n\n"
+            context = "The user is asking about stocks."
         
-        # Generate response with OpenAI API
         if api_key:
             url = "https://api.deepseek.com/v1/chat/completions"
-
+            
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
-
+            
+            messages = [
+                {"role": "system", "content": "You are a helpful stock market assistant. Answer questions about stocks, provide financial advice, and help with investment decisions. Keep responses concise and informative. Remember what the user has already told you and maintain context in your responses."}
+            ]
+            
+            if conversation_history:
+                messages.extend(conversation_history)
+            
+            messages.append({"role": "user", "content": f"{context}\n\nUser question: {query}"})
+            
             payload = {
                 "model": "deepseek-chat",  # Use the appropriate model name for DeepSeek
-                "messages": [
-                    {"role": "system", "content": "You are a helpful stock market assistant. Answer questions about stocks, provide financial advice, and help with investment decisions. Keep responses concise and informative."},
-                    {"role": "user", "content": f"{context}User question: {query}"}
-                ],
+                "messages": messages,
                 "temperature": 0.7,
                 "max_tokens": 500
             }
-
+            
             response = requests.post(url, headers=headers, json=payload)
             
-            # Check if the request was successful
             if response.status_code == 200:
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
@@ -356,7 +370,6 @@ def generate_chatbot_response(client, query, ticker=None):
                 return f"API Error: {response.status_code}. Please check your DeepSeek API key."
             
         else:
-            # Fallback response if no API key is provided
             if ticker:
                 stock_data = get_stock_info(ticker)
                 if "error" in stock_data:
@@ -555,7 +568,7 @@ elif page == "📄 Einzelanalyse":
 
     col3, col4 = st.columns(2)
     col3.metric("Marktkapitalisierung", f"${info.get('marketCap', 0):,}")
-    col4.metric("Dividende/Aktie", f"${info.get('dividendRate', 0)::.2f}")
+    col4.metric("Dividende/Aktie", f"${info.get('dividendRate', 0):.2f}")
 
     st.subheader("📈 Kursverlauf (6 Monate)")
     fig = go.Figure()
