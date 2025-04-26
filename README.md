@@ -45,7 +45,7 @@ This application is a comprehensive stock portfolio management system built with
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/stock-portfolio-assistant.git
+git clone https://github.com/niclashart/Streamlit-Stock-App
 cd stock-portfolio-assistant
 ```
 
