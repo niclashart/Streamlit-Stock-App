@@ -1,14 +1,14 @@
 # Stock Portfolio Assistant
 
 ## Overview
-This application is a comprehensive stock portfolio management system built with Streamlit. It offers a user-friendly interface for tracking investments, analyzing stock performance, setting up automated buy/sell orders, and getting AI-powered stock insights through a conversational chatbot.
+This application is a comprehensive stock portfolio management system with a modular architecture. It consists of a frontend built with Streamlit and a backend API built with FastAPI. The application offers a user-friendly interface for tracking investments, analyzing stock performance, setting up automated buy/sell orders, and getting AI-powered stock insights through a conversational chatbot.
 
 ## Key Features
 
 ### User Authentication
-- Secure login and registration system
+- Secure login and registration system with JWT authentication
 - Password recovery functionality
-- MD5 password hashing for security
+- Bcrypt password hashing for enhanced security
 
 ### Portfolio Management
 - Add, view, and track stock positions
@@ -41,12 +41,56 @@ This application is a comprehensive stock portfolio management system built with
 - Context-aware responses that maintain conversation history
 - Fallback functionality when API is unavailable
 
+## Architecture
+
+This project uses a modern, modular architecture:
+
+- **Frontend**: Streamlit for an interactive user interface
+- **Backend**: FastAPI for a fast, asynchronous API with layered architecture:
+  - API Layer: Routes and endpoints
+  - Service Layer: Business logic
+  - Repository Layer: Data access
+  - Model Layer: Database schema
+- **Database**: PostgreSQL for persistent data storage with Alembic migrations
+- **Deployment**: Docker and Docker Compose for containerized deployment
+
+For detailed information on the architecture, see [architecture.md](architecture.md).
+
 ## Installation
+
+### Using Docker (recommended)
 
 1. Clone this repository:
 ```bash
 git clone https://github.com/niclashart/Streamlit-Stock-App
-cd stock-portfolio-assistant
+cd Streamlit-Stock-App
+```
+
+2. Create a `.env` file in the project root with your configuration:
+```
+DEEPSEEK_API_KEY=your_api_key_here
+JWT_SECRET_KEY=your_jwt_secret_here
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=stockapp
+DB_HOST=postgres
+```
+
+3. Start the application with Docker Compose:
+```bash
+docker-compose up -d
+```
+
+4. Access the application:
+   - Frontend: http://localhost:8501
+   - Backend API: http://localhost:8000/api/v1/docs
+
+### Without Docker (Development)
+
+1. Clone this repository:
+```bash
+git clone https://github.com/niclashart/Streamlit-Stock-App
+cd Streamlit-Stock-App
 ```
 
 2. Install required packages:
@@ -54,13 +98,27 @@ cd stock-portfolio-assistant
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file in the project root with your DeepSeek API key:
+3. Create a `.env` file with configuration:
 ```
 DEEPSEEK_API_KEY=your_api_key_here
+JWT_SECRET_KEY=your_jwt_secret_here
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=stockapp
+DB_HOST=localhost
 ```
 
-4. Run the application:
+4. Set up PostgreSQL database
+
+5. Run the backend:
 ```bash
+cd backend
+uvicorn main:app --reload
+```
+
+6. Run the frontend:
+```bash
+cd frontend
 streamlit run app.py
 ```
 
@@ -75,6 +133,12 @@ streamlit run app.py
 - Python-dotenv
 
 ## Data Structure
+### Database Tables
+- `users` - Stores user information and authentication data
+- `positions` - Portfolio positions for each user
+- `orders` - Trading orders with status tracking
+
+### Legacy CSV Files (for reference only)
 - `users.csv` - Stores username and hashed passwords
 - `orders.csv` - Tracks all buy/sell orders and their statuses
 - `portfolio_{username}.csv` - Individual portfolio data for each user
@@ -85,6 +149,19 @@ streamlit run app.py
 1. Register for a new account
 2. Add stocks to your portfolio with purchase information
 3. Explore portfolio analytics and set up automated orders
+
+### Running Database Migrations
+To initialize or update the database schema:
+```bash
+cd backend
+alembic upgrade head
+```
+
+To create a new migration after changing models:
+```bash
+cd backend
+alembic revision --autogenerate -m "Description of changes"
+```
 
 ### Portfolio Management
 - Track your investments across multiple stocks
@@ -108,9 +185,20 @@ The application uses environment variables to configure the API key. Create a `.
 DEEPSEEK_API_KEY=your_api_key_here
 ```
 
-## Security Note
+## Running Tests
 
-This application uses MD5 for password hashing, which is not recommended for production use. For a production environment, consider using a more secure hashing algorithm like bcrypt or Argon2.
+To run automated tests:
+
+```bash
+cd Streamlit-Stock-App
+pytest
+```
+
+## API Documentation
+
+When the application is running, API documentation is available at:
+- Swagger UI: http://localhost:8000/api/v1/docs
+- ReDoc: http://localhost:8000/api/v1/redoc
 
 ## License
 
