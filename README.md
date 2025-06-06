@@ -1,14 +1,25 @@
-# Stock Portfolio Assistant
+# Streamlit Stock Portfolio App
 
-## Overview
-This application is a comprehensive stock portfolio management system built with Streamlit. It offers a user-friendly interface for tracking investments, analyzing stock performance, setting up automated buy/sell orders, and getting AI-powered stock insights through a conversational chatbot.
+## Überblick
+Diese Anwendung ist ein umfassendes Aktienportfolio-Verwaltungssystem, das mit Streamlit und PostgreSQL erstellt wurde. Sie bietet eine benutzerfreundliche Oberfläche zur Verfolgung von Investitionen, Analyse der Aktienperformance, Einrichtung automatisierter Kauf-/Verkaufsaufträge und KI-gestützte Aktieneinblicke durch einen interaktiven Bot.
 
-## Key Features
+## Modulare Struktur
 
-### User Authentication
-- Secure login and registration system
-- Password recovery functionality
-- MD5 password hashing for security
+Die App ist in Module aufgeteilt:
+
+- `src/app.py` - Hauptanwendung
+- `src/database/` - Datenbank-Modul mit SQLAlchemy Integration
+- `src/models/` - Datenmodelle (User, Portfolio, Order)
+- `src/services/` - Services (Stock API)
+- `src/utils/` - Hilfsklassen und -funktionen
+- `src/views/` - View-Module für die verschiedenen Seiten
+
+## Hauptfunktionen
+
+### Benutzerverwaltung
+- Sicheres Login- und Registrierungssystem
+- Passwort-Wiederherstellungsfunktion
+- MD5-Passwort-Hashing für Sicherheit
 
 ### Portfolio Management
 - Add, view, and track stock positions

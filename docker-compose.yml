@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: stockuser
+      POSTGRES_PASSWORD: stockpassword
+      POSTGRES_DB: stockapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "stockuser", "-d", "stockapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  streamlit:
+    build: .
+    restart: always
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=stockapp
+      - DB_USER=stockuser
+      - DB_PASSWORD=stockpassword
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
