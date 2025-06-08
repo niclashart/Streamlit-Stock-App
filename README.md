@@ -59,9 +59,25 @@ pip install -r requirements.txt
 DEEPSEEK_API_KEY=your_api_key_here
 ```
 
-4. Run the application:
+4. Choose your storage option:
+   - For CSV storage (default), no additional setup is needed
+   - For database storage:
+     ```bash
+     # For SQLite (recommended for local use)
+     python init_db.py --type sqlite
+     
+     # For PostgreSQL
+     python init_db.py --type postgres
+     ```
+
+5. Update your `.env` file to use database storage (if desired):
+```
+STORAGE_TYPE=database  # Options: 'csv' or 'database'
+```
+
+6. Run the application:
 ```bash
-streamlit run app.py
+streamlit run src/main.py
 ```
 
 ## Dependencies
@@ -73,6 +89,39 @@ streamlit run app.py
 - Plotly
 - Requests
 - Python-dotenv
+- Numpy
+- Matplotlib
+- SQLite (built-in)
+- psycopg2-binary (for PostgreSQL)
+
+## Project Structure
+
+The application follows the Model-View-Controller (MVC) architecture:
+
+```
+src/
+├── config/             # Configuration settings
+├── controllers/        # Application controllers
+├── database/           # Data access layer
+├── models/             # Data models
+├── services/           # Business logic services
+├── utils/              # Utility functions and helpers
+└── views/              # UI components
+```
+
+### Key Components:
+
+- **Models**: Define data structures and business entities (User, Portfolio, Order)
+- **Views**: Handle UI rendering and user interaction
+- **Controllers**: Coordinate between models and views
+- **Services**: Implement business logic and external API interactions
+- **Database**: Manage data persistence through either CSV files or SQL database
+
+### Storage Options:
+
+The application supports two different storage backends:
+- **CSV Files**: Simple file-based storage (default)
+- **SQL Database**: More robust storage with support for SQLite or PostgreSQL
 
 ## Data Structure
 - `users.csv` - Stores username and hashed passwords
