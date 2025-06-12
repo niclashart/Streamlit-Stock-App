@@ -9,43 +9,7 @@ from datetime import datetime
 from models.order import OrderService, Order
 from services.chatbot_service import ChatbotService
 from services.stock_service import StockService
-
-def check_pending_orders() -> list:
-    """Check pending orders and execute them if price conditions are met"""
-    order_service = OrderService()
-    pending_orders = order_service.get_pending_orders()
-    executed_orders = []
-    
-    for order in pending_orders:
-        ticker = order.ticker
-        try:
-            # Get current price
-            current_price = StockService.get_current_price(ticker)
-            
-            if current_price is None:
-                continue
-                
-            # Check if order should be executed
-            execute = False
-            if order.order_type == "buy" and current_price <= order.price:
-                execute = True
-            elif order.order_type == "sell" and current_price >= order.price:
-                execute = True
-                
-            if execute:
-                # Execute the order
-                order_service.execute_order(order, current_price)
-                executed_orders.append({
-                    "username": order.username,
-                    "ticker": ticker,
-                    "type": order.order_type,
-                    "price": current_price,
-                    "quantity": order.quantity
-                })
-        except Exception as e:
-            print(f"Error processing order for {ticker}: {e}")
-    
-    return executed_orders
+from services.trading_bot_service import trading_bot
 
 def show_trading_bot_view() -> None:
     """Display the trading bot view with chatbot and order management"""
@@ -55,20 +19,18 @@ def show_trading_bot_view() -> None:
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
     
-    if "orders_checked" not in st.session_state:
-        st.session_state["orders_checked"] = datetime.now().timestamp() - 120  # Check immediately first time
+    # Display information about the trading bot
+    last_check = trading_bot.get_last_check_time()
+    st.success(f"✅ Trading bot is active and checking orders every 30 seconds")
+    st.caption(f"Last check: {last_check.strftime('%H:%M:%S')}")
     
-    # Check for orders that need to be executed (every 2 minutes)
-    current_time = datetime.now().timestamp()
-    if current_time - st.session_state["orders_checked"] > 120:
-        with st.spinner("Checking pending orders..."):
-            executed_orders = check_pending_orders()
-            if executed_orders:
-                st.success(f"🎉 {len(executed_orders)} order(s) were executed!")
-                for order in executed_orders:
-                    if order["username"] == st.session_state["username"]:
-                        st.info(f"Your {order['type']} order for {order['quantity']} shares of {order['ticker']} was executed at ${order['price']:.2f}!")
-        st.session_state["orders_checked"] = current_time
+    # Check for recently executed orders
+    executed_orders = trading_bot.get_executed_orders()
+    if executed_orders:
+        st.success(f"🎉 {len(executed_orders)} order(s) were executed!")
+        for order in executed_orders:
+            if order["username"] == st.session_state["username"]:
+                st.info(f"Your {order['type']} order for {order['quantity']} shares of {order['ticker']} was executed at ${order['price']:.2f}!")
     
     # Create tabs for chatbot and order management
     tab1, tab2 = st.tabs(["💬 Stock Chatbot", "📊 Automated Trading"])
@@ -169,6 +131,17 @@ def show_trading_bot_view() -> None:
                 
                 quantity = st.number_input("Quantity", min_value=0.01, value=1.0)
             
+            # Display warning message about pending orders
+            st.warning("⚠️ WICHTIG: Orders bleiben im Status 'PENDING' bis der Zielpreis erreicht ist!")
+            
+            if ticker and order_type == "buy":
+                current_price = StockService.get_current_price(ticker)
+                if current_price and price:
+                    if price < current_price:
+                        st.info(f"Aktueller Preis (${current_price:.2f}) ist höher als Ihr Zielpreis (${price:.2f}). Order bleibt ausstehend, bis der Preis fällt.")
+                    else:
+                        st.success(f"Aktueller Preis (${current_price:.2f}) ist günstiger als Ihr Zielpreis (${price:.2f}). Order könnte sofort ausgeführt werden.")
+            
             submitted = st.form_submit_button("Create Order")
             
             if submitted:
@@ -188,15 +161,27 @@ def show_trading_bot_view() -> None:
                         else:
                             st.error(f"Not enough shares of {ticker} in your portfolio for this sell order.")
                     else:
+                        # Always create orders with pending status
                         order = Order(
                             username=st.session_state["username"],
                             ticker=ticker,
                             order_type=order_type,
                             price=price,
-                            quantity=quantity
+                            quantity=quantity,
+                            status="pending"  # Explicitly set to pending
                         )
+                        
+                        # Create the order in database
                         order_service.create_order(order)
-                        st.success(f"Order created! Will {order_type} {quantity} shares of {ticker} when price reaches ${price:.2f}")
+                        
+                        # Show success message with clear explanation
+                        current_price = StockService.get_current_price(ticker)
+                        if current_price and current_price <= price and order_type == "buy":
+                            st.success(f"Order created! The current price (${current_price:.2f}) is already lower than your target price. The trading bot will execute it soon.")
+                        elif current_price and current_price >= price and order_type == "sell":
+                            st.success(f"Order created! The current price (${current_price:.2f}) is already higher than your target price. The trading bot will execute it soon.")
+                        else:
+                            st.success(f"Order created and marked as PENDING! Will {order_type} {quantity} shares of {ticker} when price reaches ${price:.2f}")
                 else:
                     st.error("Please enter a valid ticker, price, and quantity.")
         

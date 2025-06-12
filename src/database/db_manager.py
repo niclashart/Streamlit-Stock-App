@@ -314,12 +314,16 @@ class OrderDatabaseManager(DatabaseManager):
         import datetime
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
+        # Orders are ALWAYS saved with pending status, regardless of current price
+        # The trading bot will check and execute them based on market conditions
+        status = "pending"
+        
         with self._get_cursor() as cursor:
             cursor.execute(
                 """INSERT INTO orders 
                    (username, ticker, order_type, price, quantity, created_at, status) 
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (username, ticker, order_type, price, quantity, created_at, "pending")
+                (username, ticker, order_type, price, quantity, created_at, status)
             )
             
     def get_orders(self, username: Optional[str] = None) -> pd.DataFrame:

@@ -153,8 +153,110 @@ def migrate_data_from_csv():
     """
     Migrate data from CSV files to the selected database
     """
-    print("Data migration functionality will be implemented in a future update.")
-    print("Currently, you'll need to manually register and add portfolio positions.")
+    import pandas as pd
+    import sqlite3
+    import os
+    
+    print("Migrating data from CSV files to the database...")
+    
+    # Determine database type
+    db_type = os.getenv("STORAGE_TYPE", "csv").lower()
+    if db_type != "database":
+        print("Warning: Database is not set as storage type in .env file.")
+        print("Setting will be: STORAGE_TYPE=database")
+    
+    # Connect to the database (SQLite for simplicity)
+    conn = sqlite3.connect("stock_app.db")
+    cursor = conn.cursor()
+    
+    try:
+        # Migrate users
+        if os.path.exists("users.csv"):
+            users_df = pd.read_csv("users.csv")
+            if not users_df.empty:
+                print(f"Migrating {len(users_df)} users...")
+                for _, row in users_df.iterrows():
+                    try:
+                        cursor.execute(
+                            "INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)",
+                            (row["username"], row["password_hash"])
+                        )
+                    except Exception as e:
+                        print(f"Error migrating user {row['username']}: {e}")
+        
+        # Migrate portfolios
+        portfolio_files = [f for f in os.listdir('.') if f.startswith('portfolio_') and f.endswith('.csv')]
+        for pf in portfolio_files:
+            try:
+                username = pf.replace('portfolio_', '').replace('.csv', '')
+                print(f"Migrating portfolio for {username}...")
+                
+                # Check if user exists in database
+                cursor.execute("SELECT COUNT(*) FROM users WHERE username = ?", (username,))
+                if cursor.fetchone()[0] == 0:
+                    print(f"Warning: User {username} not found in database, creating...")
+                    cursor.execute(
+                        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                        (username, "placeholder_hash")  # Use a placeholder hash
+                    )
+                
+                # Migrate portfolio data
+                portfolio_df = pd.read_csv(pf)
+                if not portfolio_df.empty:
+                    for _, row in portfolio_df.iterrows():
+                        try:
+                            # Convert date if needed
+                            purchase_date = row["Kaufdatum"] if isinstance(row["Kaufdatum"], str) else str(row["Kaufdatum"])
+                            
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO portfolios 
+                                (username, ticker, shares, entry_price, purchase_date) 
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (
+                                username, 
+                                row["Ticker"], 
+                                float(row["Anteile"]), 
+                                float(row["Einstiegspreis"]), 
+                                purchase_date
+                            ))
+                        except Exception as e:
+                            print(f"Error migrating position {row['Ticker']} for {username}: {e}")
+            except Exception as e:
+                print(f"Error processing file {pf}: {e}")
+        
+        # Migrate orders
+        if os.path.exists("orders.csv"):
+            orders_df = pd.read_csv("orders.csv")
+            if not orders_df.empty:
+                print(f"Migrating {len(orders_df)} orders...")
+                for _, row in orders_df.iterrows():
+                    try:
+                        cursor.execute("""
+                            INSERT INTO orders 
+                            (username, ticker, order_type, price, quantity, created_at, status) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            row["username"], 
+                            row["ticker"], 
+                            row["order_type"], 
+                            float(row["price"]), 
+                            float(row["quantity"]), 
+                            row["created_at"],
+                            row["status"]
+                        ))
+                    except Exception as e:
+                        print(f"Error migrating order for {row['ticker']}: {e}")
+        
+        conn.commit()
+        print("Data migration completed successfully!")
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error during data migration: {e}")
+        
+    finally:
+        cursor.close()
+        conn.close()
 
 def main():
     """

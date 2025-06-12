@@ -9,6 +9,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 from controllers.app_controller import AppController
+from services.trading_bot_service import trading_bot
 
 # Configure the page
 st.set_page_config(
@@ -20,5 +21,9 @@ st.set_page_config(
 
 # Run the application
 if __name__ == "__main__":
+    # Start the trading bot service in the background
+    trading_bot.start()
+    
+    # Run the main application
     controller = AppController()
     controller.run()

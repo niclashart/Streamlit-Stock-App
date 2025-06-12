@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 import pandas as pd
 from models.portfolio import PortfolioService
+from models.order import OrderService, Order
 from services.stock_service import StockService
 from utils.chart_utils import (
     calculate_portfolio_metrics,
@@ -23,6 +24,54 @@ def show_overview_view() -> None:
     # Initialize portfolio service
     portfolio_service = PortfolioService(st.session_state["username"])
     portfolio = portfolio_service.load_portfolio()
+    
+    # Initialize order service to get pending orders
+    order_service = OrderService()
+    pending_orders = order_service.get_pending_orders(st.session_state["username"])
+    
+    # Display pending orders section at the top
+    if pending_orders:
+        st.subheader("⏳ Deine ausstehenden Orders")
+        
+        # Create a DataFrame for pending orders
+        order_data = []
+        for order in pending_orders:
+            # Get current price for comparison
+            current_price = StockService.get_current_price(order.ticker)
+            
+            # Calculate price difference
+            price_diff = ""
+            if current_price:
+                if order.order_type == "buy":
+                    diff = order.price - current_price
+                    diff_percent = (diff / current_price) * 100
+                    status = "🟢 Ausführbar" if current_price <= order.price else f"🟠 {abs(diff_percent):.1f}% entfernt"
+                else:  # sell order
+                    diff = current_price - order.price
+                    diff_percent = (diff / order.price) * 100
+                    status = "🟢 Ausführbar" if current_price >= order.price else f"🟠 {abs(diff_percent):.1f}% entfernt"
+            else:
+                status = "⚪ Unbekannt"
+            
+            order_data.append({
+                "Ticker": order.ticker,
+                "Typ": order.order_type.upper(),
+                "Zielpreis": f"${order.price:.2f}",
+                "Anzahl": order.quantity,
+                "Aktueller Preis": f"${current_price:.2f}" if current_price else "Nicht verfügbar",
+                "Status": status
+            })
+        
+        # Display as a DataFrame
+        if order_data:
+            order_df = pd.DataFrame(order_data)
+            st.dataframe(order_df.set_index("Ticker"), use_container_width=True)
+            
+            # Add note about order execution
+            st.info("ℹ️ Orders werden automatisch ausgeführt, wenn der Zielpreis erreicht ist. Prüfung alle 30 Sekunden.")
+        
+        # Add visual separator
+        st.markdown("---")
     
     if not portfolio.positions:
         st.warning("Bitte erfasse zuerst Positionen unter 'Portfolio verwalten'.")
