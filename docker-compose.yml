@@ -1,0 +1,46 @@
+version: '3.8'
+services:
+  frontend:
+    build: ./app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./app:/app
+    environment:
+      - DEEPSEEK_SERVICE_URL=http://deepseek_service:5000
+      - STOCK_SERVICE_URL=http://stock_service:5001
+      - PYTHONUNBUFFERED=1 # For seeing print statements from streamlit app immediately
+      - ST_LOGGER_LEVEL=debug # For more verbose streamlit logging
+    depends_on:
+      - deepseek_service
+      - stock_service
+    networks:
+      - stockapp_net
+
+  deepseek_service:
+    build: ./deepseek
+    volumes:
+      - ./deepseek:/app
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - STOCK_SERVICE_URL=http://stock_service:5001 # Deepseek service also needs to know stock_service URL
+      - PYTHONUNBUFFERED=1
+    # ports: # Optional: expose port to host for direct testing
+    #   - "5000:5000"
+    networks:
+      - stockapp_net
+
+  stock_service:
+    build: ./stock
+    volumes:
+      - ./stock:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    # ports: # Optional: expose port to host
+    #  - "5001:5001"
+    networks:
+      - stockapp_net
+
+networks:
+  stockapp_net:
+    driver: bridge
