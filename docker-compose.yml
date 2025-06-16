@@ -1,16 +1,20 @@
 version: '3.8'
+
 services:
   frontend:
     build: ./app
-    ports:
-      - "8501:8501"
     volumes:
       - ./app:/app
+    expose:
+      - "8501"
     environment:
       - DEEPSEEK_SERVICE_URL=http://deepseek_service:5000
       - STOCK_SERVICE_URL=http://stock_service:5001
-      - PYTHONUNBUFFERED=1 # For seeing print statements from streamlit app immediately
-      - ST_LOGGER_LEVEL=debug # For more verbose streamlit logging
+      - PYTHONUNBUFFERED=1
+      - ST_LOGGER_LEVEL=debug
+      - VIRTUAL_HOST=app.deinedomain.com
+      - LETSENCRYPT_HOST=app.deinedomain.com
+      - LETSENCRYPT_EMAIL=dein@email.com
     depends_on:
       - deepseek_service
       - stock_service
@@ -23,10 +27,10 @@ services:
       - ./deepseek:/app
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - STOCK_SERVICE_URL=http://stock_service:5001 # Deepseek service also needs to know stock_service URL
+      - STOCK_SERVICE_URL=http://stock_service:5001
       - PYTHONUNBUFFERED=1
-    # ports: # Optional: expose port to host for direct testing
-    #   - "5000:5000"
+    expose:
+      - "5000"
     networks:
       - stockapp_net
 
@@ -36,11 +40,48 @@ services:
       - ./stock:/app
     environment:
       - PYTHONUNBUFFERED=1
-    # ports: # Optional: expose port to host
-    #  - "5001:5001"
+    expose:
+      - "5001"
+    networks:
+      - stockapp_net
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+    networks:
+      - stockapp_net
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx-letsencrypt
+    restart: always
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+      - DEFAULT_EMAIL=dein@email.com
+    volumes_from:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
     networks:
       - stockapp_net
 
 networks:
   stockapp_net:
     driver: bridge
+
+volumes:
+  certs:
+  vhost:
+  html:
