@@ -1,10 +1,20 @@
-import streamlit as st
 import sys
 import os
+
+# Add the project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import streamlit as st
+import os  # already imported but ensure it's here for getenv
 from datetime import date, datetime
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import requests  # Import requests for API calls
+import json  # Import json for parsing
+
 from database import (
     init_db,
     add_user,
@@ -19,16 +29,101 @@ from database import (
     update_order_status,  # Order functions
 )
 
-# Add the project root to sys.path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:  # Avoid adding duplicate paths
-    sys.path.insert(0, project_root)
+# Remove old direct imports for deepseek and stock utils
+# from deepseek.deepseek_api import generate_chatbot_response
+# from stock.stock_utils import get_price_history, get_dividends, get_yfinance_stock_info
 
-# Import the new deepseek_api functions
-from deepseek.deepseek_api import generate_chatbot_response
+# Get Service URLs from environment variables, with defaults for local Docker Compose
+DEEPSEEK_SERVICE_URL = os.getenv("DEEPSEEK_SERVICE_URL", "http://deepseek_service:5000")
+STOCK_SERVICE_URL = os.getenv("STOCK_SERVICE_URL", "http://stock_service:5001")
 
-# Import the new stock_utils functions
-from stock.stock_utils import get_price_history, get_dividends, get_yfinance_stock_info
+
+# --- API Client Functions ---
+def generate_chatbot_response(query, ticker=None):
+    try:
+        payload = {"query": query, "ticker": ticker}
+        # We might need to pass conversation history from st.session_state if that feature is kept
+        # payload['conversation_history'] = st.session_state.get("messages", [])[-10:]
+        response = requests.post(f"{DEEPSEEK_SERVICE_URL}/chatbot", json=payload)
+        response.raise_for_status()
+        return response.json().get("reply", "Error: No reply found in response.")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error calling Chatbot service: {e}")
+        return f"Error connecting to chatbot: {e}"
+    except Exception as e:
+        st.error(f"An unexpected error occurred with the Chatbot service: {e}")
+        return f"Unexpected error with chatbot: {e}"
+
+
+def get_yfinance_stock_info(ticker):
+    try:
+        response = requests.get(f"{STOCK_SERVICE_URL}/info/{ticker}")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error calling Stock Info service for {ticker}: {e}")
+        return {
+            "error": str(e),
+            "name": ticker,
+            "current_price": "N/A",
+        }  # Provide defaults
+    except Exception as e:
+        st.error(
+            f"An unexpected error occurred with the Stock Info service for {ticker}: {e}"
+        )
+        return {"error": str(e), "name": ticker, "current_price": "N/A"}
+
+
+def get_price_history(tickers, start="2015-01-01"):
+    try:
+        tickers_str = ",".join(tickers)
+        response = requests.get(
+            f"{STOCK_SERVICE_URL}/history",
+            params={"tickers": tickers_str, "start": start},
+        )
+        response.raise_for_status()
+        json_response = response.json()
+        # Convert JSON back to DataFrame as expected by the rest of the app
+        df = pd.DataFrame(
+            json_response["data"],
+            columns=json_response["columns"],
+            index=pd.to_datetime(json_response["index"]),
+        )
+        if "warnings" in json_response:
+            for warning in json_response["warnings"]:
+                st.warning(warning)
+        return df
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error calling Price History service: {e}")
+        return pd.DataFrame()  # Return empty DataFrame on error
+    except Exception as e:
+        st.error(f"An unexpected error occurred with the Price History service: {e}")
+        return pd.DataFrame()
+
+
+def get_dividends(ticker):
+    try:
+        response = requests.get(f"{STOCK_SERVICE_URL}/dividends/{ticker}")
+        response.raise_for_status()
+        json_response = response.json()
+        # Convert JSON back to Series/DataFrame as expected
+        if not json_response.get("data"):  # Handle empty dividend data from service
+            return pd.Series(dtype="float64", index=pd.to_datetime([]))
+        df = pd.DataFrame(
+            json_response["data"],
+            columns=["value"],
+            index=pd.to_datetime(json_response["index"]),
+        )
+        return df["value"]  # Return as a Series
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error calling Dividends service for {ticker}: {e}")
+        return pd.Series(dtype="float64")  # Return empty Series on error
+    except Exception as e:
+        st.error(
+            f"An unexpected error occurred with the Dividends service for {ticker}: {e}"
+        )
+        return pd.Series(dtype="float64")
+
 
 # Initialize the database (creates tables if they don\\'t exist)
 init_db()
@@ -661,18 +756,6 @@ elif page == "🤖 Buy Bot":
     with tab1:
         st.subheader("💬 Ask about stocks")
 
-        from deepseek.deepseek_api import api_key as deepseek_api_key
-
-        if deepseek_api_key:
-            st.success("DeepSeek API key is configured ✅")
-        else:
-            st.warning(
-                "DeepSeek API key not found. Please add it to your .env file to enable advanced features."
-            )
-            st.info(
-                "Set DEEPSEEK_API_KEY=your_api_key in a .env file in the app directory."
-            )
-
         for message in st.session_state["messages"]:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -684,12 +767,112 @@ elif page == "🤖 Buy Bot":
 
             ticker_match = None
             tokens = prompt.upper().split()
+            # Expanded list of common words to exclude from ticker detection
+            EXCLUDED_WORDS_FOR_TICKER_DETECTION = [
+                "A",
+                "AN",
+                "THE",
+                "I",
+                "ME",
+                "MY",
+                "WE",
+                "US",
+                "OUR",
+                "YOU",
+                "YOUR",
+                "HE",
+                "HIM",
+                "HIS",
+                "SHE",
+                "HER",
+                "IT",
+                "ITS",
+                "THEY",
+                "THEM",
+                "THEIR",
+                "IS",
+                "AM",
+                "ARE",
+                "WAS",
+                "WERE",
+                "BE",
+                "BEEN",
+                "BEING",
+                "HAVE",
+                "HAS",
+                "HAD",
+                "DO",
+                "DOES",
+                "DID",
+                "WILL",
+                "WOULD",
+                "SHOULD",
+                "CAN",
+                "COULD",
+                "MAY",
+                "MIGHT",
+                "MUST",
+                "AND",
+                "BUT",
+                "OR",
+                "NOR",
+                "FOR",
+                "SO",
+                "YET",
+                "IF",
+                "OF",
+                "IN",
+                "ON",
+                "AT",
+                "BY",
+                "TO",
+                "UP",
+                "OUT",
+                "FROM",
+                "WITH",
+                "AS",
+                "NOT",
+                "NO",
+                "YES",
+                "OK",
+                "HI",
+                "BYE",
+                "GOOD",
+                "BAD",
+                "NEW",
+                "OLD",
+                "BIG",
+                "ALL",
+                "ANY",
+                "ASK",
+                "BUY",
+                "GET",
+                "GOT",
+                "HOW",
+                "LET",
+                "MAN",
+                "NOW",
+                "ONE",
+                "SEE",
+                "SIT",
+                "TEN",
+                "TRY",
+                "TWO",
+                "USE",
+                "WAY",
+                "WHO",
+                "WHY",
+                "WHAT",
+                "WHEN",
+                "WHERE",
+                "RIGHT",
+            ]
             for token in tokens:
                 if (
                     token.isalpha()
                     and len(token) <= 5
                     and token
-                    not in ["A", "I", "THE", "AND", "OR", "FOR", "WHAT", "HOW", "WHY"]
+                    not in EXCLUDED_WORDS_FOR_TICKER_DETECTION  # Using the expanded list
                 ):
                     try:
                         stock_check_info = get_yfinance_stock_info(
