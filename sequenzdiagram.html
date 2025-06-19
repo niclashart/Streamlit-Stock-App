@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock App Sequenzdiagramm</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+    <h1>Sequenzdiagramm der Stock App</h1>
+    <div class="mermaid">
+    sequenceDiagram
+        actor User
+        participant Frontend as Streamlit Frontend
+        participant AppController as App Controller
+        participant Auth as Authentication Service
+        participant Portfolio as Portfolio Service
+        participant Order as Order Service
+        participant Stock as Stock Service
+        participant DB as Database
+        participant TradingBot as Trading Bot
+
+        %% Anmeldung
+        User->>Frontend: Login (Benutzername, Passwort)
+        Frontend->>AppController: Authentifizierungsanfrage
+        AppController->>Auth: validate_user_login()
+        Auth->>DB: Benutzerabfrage
+        DB-->>Auth: Benutzerinformationen
+        Auth-->>AppController: Authentifizierungsergebnis
+        AppController-->>Frontend: Authentifizierungsstatus
+        Frontend-->>User: Login-Bestätigung
+
+        %% Portfolio anzeigen
+        User->>Frontend: Wählt "Übersicht"
+        Frontend->>AppController: Übersichtsanfrage
+        AppController->>Portfolio: load_portfolio()
+        Portfolio->>DB: Portfolio-Daten abfragen
+        DB-->>Portfolio: Portfolio-Daten
+        Portfolio->>Stock: get_current_prices()
+        Stock-->>Portfolio: Aktuelle Kursdaten
+        Portfolio-->>AppController: Portfolio mit aktuellen Kursen
+        AppController->>Order: get_pending_orders()
+        Order->>DB: Ausstehende Orders abfragen
+        DB-->>Order: Ausstehende Orders
+        Order-->>AppController: Ausstehende Orders
+        AppController-->>Frontend: Portfolio-Übersicht mit ausstehenden Orders
+        Frontend-->>User: Zeigt Portfolio und Orders an
+
+        %% Order erstellen
+        User->>Frontend: Erstellt Buy Order
+        Frontend->>AppController: Order-Erstellungsanfrage
+        AppController->>Order: create_order()
+        Order->>DB: Order speichern (Status: pending)
+        DB-->>Order: Bestätigung
+        Order-->>AppController: Order-Erstellungsbestätigung
+        AppController-->>Frontend: Order-Status
+        Frontend-->>User: Order-Bestätigung
+
+        %% Trading Bot Ausführung (asynchron)
+        TradingBot->>Order: get_pending_orders()
+        Order->>DB: Ausstehende Orders abfragen
+        DB-->>Order: Ausstehende Orders
+        Order-->>TradingBot: Ausstehende Orders
+        loop Für jede ausstehende Order
+            TradingBot->>Stock: get_current_price(ticker)
+            Stock-->>TradingBot: Aktueller Kurs
+            alt Preisbedingung erfüllt
+                TradingBot->>Order: execute_order()
+                Order->>DB: Order-Status aktualisieren (executed)
+                Order->>Portfolio: add_position()
+                Portfolio->>DB: Position zum Portfolio hinzufügen
+                DB-->>Portfolio: Bestätigung
+                Portfolio-->>Order: Bestätigung
+                Order-->>TradingBot: Ausführungsbestätigung
+            end
+        end
+    </div>
+</body>
+</html>
