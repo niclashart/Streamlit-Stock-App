@@ -41,65 +41,85 @@ This application is a comprehensive stock portfolio management system built with
 - Context-aware responses that maintain conversation history
 - Fallback functionality when API is unavailable
 
-## Installation
 
-1. Clone this repository:
-```bash
-git clone https://github.com/niclashart/Streamlit-Stock-App
-cd stock-portfolio-assistant
-```
 
-2. Install required packages:
-```bash
-pip install -r requirements.txt
-```
+## Installation & Start with Docker
 
-3. Create a `.env` file in the project root with your DeepSeek API key:
-```
-DEEPSEEK_API_KEY=your_api_key_here
-```
+1. Clone the repository and switch to the project directory:
+   ```bash
+   git clone https://github.com/niclashart/Streamlit-Stock-App.git
+   cd Streamlit-Stock-App
+   ```
 
-4. Run the application:
-```bash
-streamlit run app.py
-```
+2. Create a `.env` file in the project root with your DeepSeek API key:
+   ```
+   DEEPSEEK_API_KEY=your_api_key_here
+   ```
 
-## Dependencies
+3. Build and start all services with Docker Compose:
+   ```bash
+   docker-compose up -d --build
+   ```
 
-- Python 3.8+
-- Streamlit
-- Pandas
-- yfinance
-- Plotly
-- Requests
-- Python-dotenv
+4. The application will then be available at:  
+   [http://localhost:8501](http://localhost:8501)  
+   (or at the IP/domain of your server)
 
-## Data Structure
-- `users.csv` - Stores username and hashed passwords
-- `orders.csv` - Tracks all buy/sell orders and their statuses
-- `portfolio_{username}.csv` - Individual portfolio data for each user
+
+**Note:**  
+For updates, simply update the code (`git pull`), then run `docker-compose up -d --build` again.
+
+---
+
+## Demo Deployment
+
+For demonstration purposes, the application is deployed on a cloud server at Hetzner. The workflow for loading and starting the application was performed there. You can access the running demo instance at:
+
+[http://188.245.96.62:8501/](http://188.245.96.62:8501/)
+
+
+
+## Architecture
+
+The application consists of three services (microservices architecture):
+
+- **Frontend:** Streamlit app (user interface)
+- **DeepSeek Service:** Flask API for AI chatbot functionality
+- **Stock Service:** Flask API for stock and dividend data
+
+The services communicate via HTTP APIs and are orchestrated together using Docker Compose.
+
+## Data Storage
+
+- The application now uses a SQLite database (`stock_app.db`) for users, portfolios, and orders.
+
+
 
 ## Usage
 
-### First-time Use
-1. Register for a new account
-2. Add stocks to your portfolio with purchase information
-3. Explore portfolio analytics and set up automated orders
+### Start with Docker
 
-### Portfolio Management
-- Track your investments across multiple stocks
-- Monitor performance against market benchmarks
-- Analyze dividend income
+1. Make sure Docker and Docker Compose are installed.
+2. Create the `.env` file with your DeepSeek API key.
+3. Start the application with:
+   ```bash
+   docker-compose up -d --build
+   ```
+4. Open the app in your browser: [http://localhost:8501](http://localhost:8501)
 
-### Automated Trading
-- Set a buy order for AAPL at $170 to automatically purchase when the price drops
-- Create a sell order for TSLA at $250 to lock in profits when the target is reached
+### Update to a new version
 
-### AI Assistant
-- "Tell me about NVDA stock"
-- "What are the dividend prospects for MSFT?"
-- "How has AAPL performed compared to the market?"
-- "What's the P/E ratio of AMZN?"
+1. Pull the latest changes:
+   ```bash
+   git pull
+   ```
+2. Restart the containers:
+   ```bash
+   docker-compose up -d --build
+   ```
+
+
+
 
 ## Configuration
 
@@ -107,6 +127,14 @@ The application uses environment variables to configure the API key. Create a `.
 ```
 DEEPSEEK_API_KEY=your_api_key_here
 ```
+
+
+## Nice to Know
+
+- Under **Overview**, you get a summary of your executed and pending orders. Orders can be created either via **Portfolio Management** or under **Buy Bot > Automated Trading**.
+- In **Buy Bot > Stock Chatbot**, you can ask for information or analyses about various stocks using natural language.
+- Under **Single Analysis**, you can view a detailed overview of a stock selected in the **Overview** section.
+
 
 ## Security Note
 

@@ -98,7 +98,13 @@ def get_divs(ticker):
 
         if dividends.empty:
             # Return structure consistent with successful empty response
-            return jsonify(json.loads(pd.Series(dtype="float64").to_json(orient="split", date_format="iso")))
+            return jsonify(
+                json.loads(
+                    pd.Series(dtype="float64").to_json(
+                        orient="split", date_format="iso"
+                    )
+                )
+            )
 
         # Filter dividends
         comparison_date_naive = pd.to_datetime("2015-01-01")
@@ -122,7 +128,9 @@ def get_divs(ticker):
         print(f"Error in get_dividends for {ticker}: {e}")
         # Return an empty Series representation in case of an error, maintaining a 200 OK status
         # as the client side (app.py) is designed to handle empty data gracefully.
-        empty_dividends_payload = json.loads(pd.Series(dtype="float64").to_json(orient="split", date_format="iso"))
+        empty_dividends_payload = json.loads(
+            pd.Series(dtype="float64").to_json(orient="split", date_format="iso")
+        )
         return jsonify(empty_dividends_payload)  # Default 200 OK
 
 
