@@ -131,8 +131,8 @@ DEEPSEEK_API_KEY=your_api_key_here
 
 ## Nice to Know
 
-- Under **Overview**, you get a summary of your executed and pending orders. Orders can be created either via **Portfolio Management** or under **Buy Bot > Automated Trading**.
-- In **Buy Bot > Stock Chatbot**, you can ask for information or analyses about various stocks using natural language.
+- Under **Overview**, you get a summary of your executed and pending orders. Orders can be created either via **Portfolio Management** or under **Buy Bot -> Automated Trading**.
+- In **Buy Bot -> Stock Chatbot**, you can ask for information or analyses about various stocks using natural language.
 - Under **Single Analysis**, you can view a detailed overview of a stock selected in the **Overview** section.
 
 
